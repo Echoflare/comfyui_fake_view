@@ -29,6 +29,7 @@ def generate_fake_image(width=512, height=512):
     return img
 
 async def fake_view_image(request):
+    print(f"[调试] 已触发中间件")
     if "filename" in request.rel_url.query:
         filename = request.rel_url.query["filename"]
         img = generate_fake_image(512, 512)
