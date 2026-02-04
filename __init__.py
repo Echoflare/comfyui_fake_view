@@ -1,4 +1,3 @@
-import os
 import random
 import io
 from PIL import Image, ImageDraw
@@ -25,11 +24,9 @@ def generate_fake_image(width=512, height=512):
         elif shape_type == 'polygon':
             points = [(random.randint(0, width), random.randint(0, height)) for _ in range(random.randint(3, 6))]
             draw.polygon(points, fill=color)
-    print(f"[调试] 已生成假图片: {img}")
     return img
 
 async def fake_view_image(request):
-    print(f"[调试] 假图片视图函数被触发: {request.path}")
     if "filename" in request.rel_url.query:
         filename = request.rel_url.query["filename"]
         img = generate_fake_image(512, 512)
@@ -53,22 +50,28 @@ async def fake_view_image(request):
         )
     return web.Response(status=404)
 
-server = PromptServer.instance
-app = server.app
-
-hijacked_count = 0
-for resource in app.router.resources():
-    if resource.canonical in ["/view", "/api/view"]:
-        for route in resource:
-            if route.method == "GET":
+def do_hijack():
+    server = PromptServer.instance
+    app = server.app
+    hijacked_count = 0
+    for resource in app.router.resources():
+        info = resource.get_info()
+        path = info.get("path") or info.get("formatter")
+        if path in ["/view", "/api/view"]:
+            for route in resource:
                 route._handler = fake_view_image
                 hijacked_count += 1
-                print(f"[调试] 成功替换路由句柄: {resource.canonical} [{route.method}]")
+    if hijacked_count > 0:
+        print(f"[成功] 劫持了 {hijacked_count} 个视图端点")
+    else:
+        print("[失败] 无法定位端点")
 
-if hijacked_count > 0:
-    print(f"[调试] 劫持完成，共替换 {hijacked_count} 个端点")
-else:
-    print(f"[警告] 未找到 /view 端点，劫持失败")
+old_add_routes = PromptServer.add_routes
+def new_add_routes(self):
+    old_add_routes(self)
+    do_hijack()
+
+PromptServer.add_routes = new_add_routes
 
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
