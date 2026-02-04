@@ -25,15 +25,13 @@ def generate_fake_image(width=512, height=512):
         elif shape_type == 'polygon':
             points = [(random.randint(0, width), random.randint(0, height)) for _ in range(random.randint(3, 6))]
             draw.polygon(points, fill=color)
-    print("[调试] 已生成假图片: \n", img)
+    print(f"[调试] 已生成假图片对象: {img}")
     return img
 
 async def fake_view_image(request):
     if "filename" in request.rel_url.query:
         filename = request.rel_url.query["filename"]
-        
         img = generate_fake_image(512, 512)
-        
         image_format = 'png'
         if 'preview' in request.rel_url.query:
             preview_info = request.rel_url.query['preview'].split(';')
@@ -47,17 +45,25 @@ async def fake_view_image(request):
         return web.Response(
             body=buffer.read(),
             content_type=f'image/{image_format}',
-            headers={"Content-Disposition": f"filename=\"fake_{filename}\""}
+            headers={
+                "Content-Disposition": f"filename=\"fake_{filename}\"",
+                "Cache-Control": "no-store, no-cache, must-revalidate"
+            }
         )
-    
     return web.Response(status=404)
 
 server = PromptServer.instance
-routes = server.app.router
+app = server.app
 
-server.app.router.add_get("/view", fake_view_image)
+new_routes = []
+for route in app.router.routes():
+    if route.resource.canonical == "/view":
+        continue
+    new_routes.append(route)
+
+app.router.add_get("/view", fake_view_image)
+
+print("[调试] 假图片拓展路由劫持成功")
 
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
-
-print("[调试] 已注册假图片拓展")
