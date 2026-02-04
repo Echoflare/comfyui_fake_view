@@ -59,3 +59,5 @@ server.app.router.add_get("/view", fake_view_image)
 
 NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
+
+print("[调试] 已注册假图片拓展")
