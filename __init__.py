@@ -28,41 +28,36 @@ def generate_fake_image(width=512, height=512):
     print(f"[调试] 已生成假图片对象: {img}")
     return img
 
-async def fake_view_image(request):
-    print(f"[调试] 已触发中间件")
-    if "filename" in request.rel_url.query:
-        filename = request.rel_url.query["filename"]
-        img = generate_fake_image(512, 512)
-        image_format = 'png'
-        if 'preview' in request.rel_url.query:
-            preview_info = request.rel_url.query['preview'].split(';')
-            if preview_info[0] in ['webp', 'jpeg']:
-                image_format = preview_info[0]
+@web.middleware
+async def fake_view_middleware(request, handler):
+    if request.path == "/view":
+        print(f"[调试] 已触发劫持中间件: {request.path}")
+        if "filename" in request.rel_url.query:
+            filename = request.rel_url.query["filename"]
+            img = generate_fake_image(512, 512)
+            image_format = 'png'
+            if 'preview' in request.rel_url.query:
+                preview_info = request.rel_url.query['preview'].split(';')
+                if preview_info[0] in ['webp', 'jpeg']:
+                    image_format = preview_info[0]
 
-        buffer = io.BytesIO()
-        img.save(buffer, format=image_format.upper())
-        buffer.seek(0)
+            buffer = io.BytesIO()
+            img.save(buffer, format=image_format.upper())
+            buffer.seek(0)
 
-        return web.Response(
-            body=buffer.read(),
-            content_type=f'image/{image_format}',
-            headers={
-                "Content-Disposition": f"filename=\"fake_{filename}\"",
-                "Cache-Control": "no-store, no-cache, must-revalidate"
-            }
-        )
-    return web.Response(status=404)
+            return web.Response(
+                body=buffer.read(),
+                content_type=f'image/{image_format}',
+                headers={
+                    "Content-Disposition": f"filename=\"fake_{filename}\"",
+                    "Cache-Control": "no-store, no-cache, must-revalidate"
+                }
+            )
+    return await handler(request)
 
 server = PromptServer.instance
 app = server.app
-
-new_routes = []
-for route in app.router.routes():
-    if route.resource.canonical == "/view":
-        continue
-    new_routes.append(route)
-
-app.router.add_get("/view", fake_view_image)
+app.middlewares.append(fake_view_middleware)
 
 print("[调试] 假图片拓展路由劫持成功")
 
