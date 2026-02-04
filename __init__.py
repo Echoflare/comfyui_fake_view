@@ -25,7 +25,7 @@ def generate_fake_image(width=512, height=512):
         elif shape_type == 'polygon':
             points = [(random.randint(0, width), random.randint(0, height)) for _ in range(random.randint(3, 6))]
             draw.polygon(points, fill=color)
-            
+    print("[调试] 已生成假图片: \n", img)
     return img
 
 async def fake_view_image(request):
